@@ -7,8 +7,8 @@ import {validateSave,encodeSave,decodeSave,SAVE_KEY} from './progress.js';
 function boot(){
   const elements=new Map(), storage=new Map();
   const element=()=>({style:{},classList:{add(){},remove(){},toggle(){}},textContent:'',innerHTML:'',value:'',addEventListener(){},focus(){},querySelector(){return null},getContext(){return {}},showModal(){},close(){}});
-  const context=vm.createContext({console,Math,URL,performance:{now:()=>0},requestAnimationFrame(){},setTimeout(){},clearTimeout(){},addEventListener(){},document:{querySelector(s){if(!elements.has(s))elements.set(s,element());return elements.get(s)},querySelectorAll(){return []},addEventListener(){}},localStorage:{setItem(k,v){storage.set(k,v)},getItem(k){return storage.get(k)||null}},location:{hash:'',href:'http://localhost/'},window:{},validateSave,encodeSave,decodeSave,SAVE_KEY});
-  const source=readFileSync(new URL('./game.js',import.meta.url),'utf8').replace(/^import .*;\r?\n/,'');
+  const context=vm.createContext({drawDistrict(){},console,Math,URL,performance:{now:()=>0},requestAnimationFrame(){},setTimeout(){},clearTimeout(){},addEventListener(){},document:{querySelector(s){if(!elements.has(s))elements.set(s,element());return elements.get(s)},querySelectorAll(){return []},addEventListener(){}},localStorage:{setItem(k,v){storage.set(k,v)},getItem(k){return storage.get(k)||null}},location:{hash:'',href:'http://localhost/'},window:{},validateSave,encodeSave,decodeSave,SAVE_KEY});
+  const source=readFileSync(new URL('./game.js',import.meta.url),'utf8').replace(/^import .*;\r?\n/gm,'');
   vm.runInContext(source,context);
   return expr=>vm.runInContext(expr,context);
 }

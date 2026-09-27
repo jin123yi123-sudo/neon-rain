@@ -1,6 +1,6 @@
 export const ART = {};
 export async function loadArt(onProgress = () => {}) {
-  const entries = ['market', 'underground', 'rooftop', 'atlas', 'story', 'courier-run'];
+  const entries = ['market', 'underground', 'rooftop', 'atlas', 'story', 'courier-run', 'combat-atlas', 'environment-atlas'];
   let loaded = 0;
   await Promise.all(entries.map(name => new Promise((resolve, reject) => {
     const image = new Image();
@@ -40,4 +40,22 @@ export function runningSprite(ctx, frame, centerX, feetY, flip = false) {
   // Fixed cell coordinates preserve scale and foot registration across frames.
   ctx.drawImage(sheet,(frame%3)*width,Math.floor(frame/3)*height,width,height,-34,-66,68,68);
   ctx.restore();
+}
+
+const combatCrops=[
+  [27,201,364,126],[423,202,366,124],[849,67,270,263],[1220,82,303,252],
+  [43,381,304,277],[409,400,382,259],[800,447,337,211],[1180,473,327,181],
+  [8,707,393,260],[401,705,430,267],[786,677,405,272],[1182,778,325,185],
+];
+export function combatSprite(ctx,cell,x,y,width,height,flip=false){
+  const sheet=ART['combat-atlas'];if(!sheet)return;
+  const [sx,sy,sw,sh]=combatCrops[cell],scale=sheet.naturalWidth/1536;
+  ctx.save();ctx.translate(Math.round(x+(flip?width:0)),Math.round(y));if(flip)ctx.scale(-1,1);
+  ctx.drawImage(sheet,sx*scale,sy*scale,sw*scale,sh*scale,0,0,width,height);ctx.restore();
+}
+
+const envCrops=[[32,196,452,185],[540,102,470,300],[1032,87,499,340],[5,552,501,385],[580,513,433,478],[1097,501,383,511]];
+export function environmentSprite(ctx,cell,x,y,width,height){
+  const sheet=ART['environment-atlas'];if(!sheet)return;const [sx,sy,sw,sh]=envCrops[cell],scale=sheet.naturalWidth/1536;
+  ctx.drawImage(sheet,sx*scale,sy*scale,sw*scale,sh*scale,Math.round(x),Math.round(y),width,height);
 }

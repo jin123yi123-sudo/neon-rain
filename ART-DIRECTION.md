@@ -21,6 +21,8 @@
 | assets/atlas.png | 4×4 角色动作、敌人与道具图集 |
 | assets/story.png | 信使与修理师剧情插画 |
 | assets/courier-run.png | 六帧左右腿交替跑步循环，三列两行，透明背景 |
+| assets/combat-atlas.png | 匍匐动作、多种士兵、三种 Boss、货箱和路障 |
+| assets/environment-atlas.png | 开闭井盖、雨棚、檐口、排水管、高压电柜 |
 
 生成方式：内置 image_gen 工具。接口不提供模型 ID 选择或返回模型版本，因此项目记录工具来源，不伪造可验证的具体模型版本。
 

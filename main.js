@@ -2,6 +2,8 @@ import {SAVE_KEY,validateSave,encodeSave,decodeSave} from './progress.js';
 import {loadArt} from './assets.js';
 import {render} from './renderer.js';
 import {RUN_STRIDE} from './animation.js';
+import {buildLevel,ENEMY_STATS,BOSS_NAMES} from './level-design.js';
+import {playerHitbox,pointInside,setProne,resolveObstacles,shieldBlocks,stepEnemy,waterAt,stepWater} from './combat.js';
 
 const $=s=>document.querySelector(s),canvas=$('#game'),ctx=canvas.getContext('2d');
 const W=960,H=540,G=466,LENGTH=4200,STEP=1/120,keys=new Set();
@@ -12,6 +14,7 @@ const levels=[
 ];
 let state='loading',level=0,unlocked=0,score=0,camera=0,time=0,killed=0,total=0,shot=0;
 let player,enemies=[],bullets=[],particles=[],drops=[],platforms=[],ladders=[];
+let obstacles=[],hazards=[],water=[],encounters=[],explosions=[],activeEncounter=null;
 let storyStep=0,muted=true,audio,shake=0,flash=0,jumpBuffer=0,artReady=false,checkpointScore=0;
 let mouse={x:600,y:260,down:false,active:false},input={jumpHeld:false,dash:false};
 const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
@@ -32,20 +35,15 @@ function save(quiet=false){
 function reset(n){
   level=n;camera=0;killed=0;shot=0;shake=0;flash=0;jumpBuffer=0;checkpointScore=score;
   keys.clear();mouse.down=false;input.jumpHeld=false;input.dash=false;
-  bullets=[];particles=[];drops=[];platforms=[];ladders=[];enemies=[];
-  player={x:90,y:G-40,w:20,h:40,vx:0,vy:0,hp:100,shield:0,inv:0,weapon:'normal',power:0,face:1,ground:true,climbing:false,coyote:.12,anim:0,dashTime:0,dashCooldown:0,dropThrough:0};
-  for(let i=0;i<9;i++){
-    const x=355+i*415,y=326-((i+level)%3)*31;
-    platforms.push({x,y,w:205});ladders.push({x:x+37,y,bottom:G});
-    addEnemy(x+125,G-40,i%3===0?'sewer':'street',3+level);
-    if(i%2===0)addEnemy(x+130,y-40,'room',3+level);
-    if(i%2===1||level===2)addEnemy(x+230,155+(i%3)*25,'drone',2+level);
-  }
-  addEnemy(LENGTH-240,G-74,'boss',18+level*8);
+  bullets=[];particles=[];drops=[];enemies=[];explosions=[];activeEncounter=null;
+  player={x:90,y:G-40,w:20,h:40,prone:false,vx:0,vy:0,hp:100,shield:0,inv:0,weapon:'normal',power:0,face:1,ground:true,climbing:false,coyote:.12,anim:0,dashTime:0,dashCooldown:0,dropThrough:0};
+  const design=buildLevel(level,G);
+  ({platforms,ladders,obstacles,hazards,water,encounters}=design);
+  for(const e of design.enemies){addEnemy(e.x,e.y,e.kind,(ENEMY_STATS[e.kind]?.hp||[58,72,88][level])+level);Object.assign(enemies.at(-1),{group:e.group,bossType:e.bossType,spawnX:e.x})}
   total=enemies.length;$('#district').textContent=`0${n+1} · ${levels[n].name}`;
   document.querySelectorAll('[data-level]').forEach((button,i)=>{button.classList.toggle('selected',i===n);const icon=button.querySelector('i');if(icon)icon.textContent=i<=unlocked?'↗':'◇'});
 }
-function addEnemy(x,y,kind,hp){enemies.push({x,y,w:kind==='boss'?52:kind==='drone'?36:24,h:kind==='boss'?74:kind==='drone'?24:40,hp,maxHp:hp,kind,cool:2+rand(x),base:y,active:false,hurt:0})}
+function addEnemy(x,y,kind,hp){const stats=ENEMY_STATS[kind];enemies.push({x,y,w:stats?.w||[104,112,125][level],h:stats?.h||[66,78,60][level],hp,maxHp:hp,kind,cool:1.8+rand(x),base:y,active:false,hurt:0,age:0,face:-1,guard:0,burst:0,phase:1})}
 function overlay(title,body,button,kicker='NEON RAIN / FIELD TRANSMISSION'){
   $('#overlay').classList.remove('hidden');$('#overlay').classList.toggle('story',state==='story');
   $('#overlay-title').textContent=title;$('#overlay-text').textContent=body;$('#start').innerHTML=`${button} <span>→</span>`;$('#overlay-kicker').textContent=kicker;$('#continue').style.display='none';
@@ -59,13 +57,14 @@ function burst(x,y,color,count=10){for(let i=0;i<count;i++){const life=.2+Math.r
 function hitPlayer(damage){
   if(player.inv>0||state!=='playing')return;
   const absorbed=Math.min(player.shield,damage);player.shield-=absorbed;player.hp=Math.max(0,player.hp-(damage-absorbed));
-  player.inv=.85;shake=3.5;flash=.12;beep(90,.12);
+  player.inv=.65;shake=3.5;flash=.12;beep(90,.12);
   if(player.hp<=0){state='dead';mouse.down=false;overlay('信号中断','电芯还在。深呼吸，再走一次这条街。','重试本区域')}
 }
 function fire(angle){
   const angles=player.weapon==='spread'?[-.17,0,.17]:[0];
-  for(const offset of angles)bullets.push({x:player.x+10+Math.cos(angle)*24,y:player.y+15+Math.sin(angle)*24,vx:Math.cos(angle+offset)*760,vy:Math.sin(angle+offset)*760,life:1.45,friendly:true});
-  burst(player.x+10+Math.cos(angle)*28,player.y+15+Math.sin(angle)*28,'#f4edbc',3);beep(430,.045);
+  const originY=player.y+(player.prone?7:15),reach=player.prone?31:24;
+  for(const offset of angles)bullets.push({x:player.x+10+Math.cos(angle)*reach,y:originY+Math.sin(angle)*reach,vx:Math.cos(angle+offset)*760,vy:Math.sin(angle+offset)*760,life:1.45,friendly:true});
+  burst(player.x+10+Math.cos(angle)*(reach+4),originY+Math.sin(angle)*(reach+4),'#f4edbc',3);beep(430,.045);
 }
 function update(dt){
   if(state!=='playing')return;
@@ -74,74 +73,97 @@ function update(dt){
   const dx=(keys.has('d')||keys.has('arrowright')?1:0)-(keys.has('a')||keys.has('arrowleft')?1:0);
   const dy=(keys.has('s')||keys.has('arrowdown')?1:0)-(keys.has('w')||keys.has('arrowup')?1:0);
   if(dx)player.face=dx;
+  setProne(player,keys.has('c'),obstacles);
   const jumpHeld=keys.has(' ');
   if(jumpHeld&&!input.jumpHeld)jumpBuffer=.14;
   input.jumpHeld=jumpHeld;jumpBuffer=Math.max(0,jumpBuffer-dt);
   player.coyote=player.ground?.12:Math.max(0,player.coyote-dt);
-  const ladder=ladders.find(l=>Math.abs(player.x+10-l.x)<25&&player.y+40>=l.y-5&&player.y<=G-38&&(player.y+40>l.y+2||dy>0||player.climbing));
+  const ladder=!player.prone&&ladders.find(l=>Math.abs(player.x+10-l.x)<25&&player.y+player.h>=l.y-5&&player.y<=G-38&&(player.y+player.h>l.y+2||dy>0||player.climbing));
   if(ladder&&dy!==0){player.climbing=true;player.vy=0}
   if(!ladder||dx!==0)player.climbing=false;
   if(player.climbing&&ladder){
     player.x=approach(player.x,ladder.x-10,450*dt);player.vx=0;player.vy=dy*160;player.ground=false;
     if(dy<0&&player.y+40<=ladder.y+5){player.y=ladder.y-40;player.vy=0;player.ground=true;player.climbing=false}
   }else{
-    player.vx=approach(player.vx,dx*225,(dx?2100:2600)*dt);
-    player.vy+=900*dt;
+    player.vx=approach(player.vx,dx*(player.prone?65:player.inWater?130:225),(dx?2100:2600)*dt);
+    player.vy+=(player.inWater?470:900)*dt;
+    if(player.inWater&&dy<0){player.vy=approach(player.vy,-155,1100*dt);player.prone=false;player.h=40}
   }
-  if(jumpBuffer>0&&(player.coyote>0||player.climbing)){
+  if(jumpBuffer>0&&!player.prone&&(player.coyote>0||player.climbing)){
     if(dy>0&&player.ground&&player.y<G-41){player.dropThrough=.2;player.y+=4;player.vy=40}
     else{player.vy=-390;beep(200,.065)}
     player.ground=false;player.climbing=false;player.coyote=0;jumpBuffer=0;
   }
   if(!jumpHeld&&player.vy<-175&&!player.climbing)player.vy=approach(player.vy,-175,1500*dt);
-  if(keys.has('shift')&&!input.dash&&player.dashCooldown<=0){player.dashTime=.14;player.dashCooldown=.85;player.inv=Math.max(player.inv,.16);player.climbing=false;beep(330,.08)}
+  if(keys.has('shift')&&!input.dash&&!player.prone&&player.dashCooldown<=0){player.dashTime=.14;player.dashCooldown=.85;player.inv=Math.max(player.inv,.16);player.climbing=false;beep(330,.08)}
   input.dash=keys.has('shift');
   if(player.dashTime>0){player.dashTime-=dt;player.vx=player.face*490;player.vy=0}
-  const oldY=player.y;player.x=clamp(player.x+player.vx*dt,0,LENGTH-25);player.y+=player.vy*dt;player.ground=false;
-  if(player.y+40>=G){player.y=G-40;player.vy=0;player.ground=true;player.climbing=false}
+  const oldY=player.y,oldX=player.x;player.x=clamp(player.x+player.vx*dt,0,LENGTH-25);player.y+=player.vy*dt;player.ground=false;
+  const oldPool=waterAt(oldX+10,water);
+  if(oldPool&&!waterAt(player.x+10,water)&&player.y+player.h>G+3)player.x=oldX;
+  const floor=waterAt(player.x+10,water)?.bottom||G;
+  if(player.y+player.h>=floor){player.y=floor-player.h;player.vy=0;player.ground=true;player.climbing=false}
   if(!player.climbing&&player.vy>=0&&player.dropThrough<=0){
-    for(const platform of platforms)if(oldY+40<=platform.y+2&&player.y+40>=platform.y&&player.x+20>platform.x&&player.x<platform.x+platform.w){player.y=platform.y-40;player.vy=0;player.ground=true}
+    for(const platform of platforms)if(oldY+player.h<=platform.y+2&&player.y+player.h>=platform.y&&player.x+20>platform.x&&player.x<platform.x+platform.w){player.y=platform.y-player.h;player.vy=0;player.ground=true}
   }
+  resolveObstacles(player,oldX,oldY,obstacles);
   player.y=Math.max(25,player.y);
   if(player.ground&&!player.climbing&&player.dashTime<=0)player.anim+=Math.abs(player.vx)*dt/RUN_STRIDE;
   if((mouse.down||keys.has('j'))&&shot<=0){
-    const angle=mouse.down?Math.atan2(mouse.y-player.y-15,mouse.x+camera-player.x-10):Math.atan2(dy,dx||(!dy?player.face:0));
+    const angle=mouse.down?Math.atan2(mouse.y-player.y-(player.prone?7:15),mouse.x+camera-player.x-10):player.prone?(player.face>0?0:Math.PI):Math.atan2(dy,dx||(!dy?player.face:0));
     if(mouse.down)player.face=Math.cos(angle)>=0?1:-1;
     fire(angle);shot=player.weapon==='rapid'?.075:.155;
   }
   const target=clamp(player.x-W*.36+player.vx*.14,0,LENGTH-W);
   camera+=(target-camera)*(1-Math.exp(-9*dt));
+  for(const zone of encounters){
+    if(!zone.cleared&&player.x>=zone.trigger&&(!activeEncounter||activeEncounter===zone)){zone.active=true;activeEncounter=zone;}
+    if(zone.active){
+      if(enemies.some(e=>e.group===zone.group&&e.hp>0)){player.x=clamp(player.x,zone.left,zone.right-20)}
+      else{zone.cleared=true;zone.active=false;activeEncounter=null;toast('封锁解除 · '+zone.name);drops.push({x:zone.right-70,y:G-20,kind:'heal',life:45,vy:0})}
+    }
+  }
   for(const enemy of enemies){
     if(enemy.hp<=0)continue;
-    enemy.active=Math.abs(enemy.x-player.x)<650;enemy.hurt=Math.max(0,enemy.hurt-dt);
-    if(!enemy.active)continue;
-    enemy.cool-=dt;
-    if(enemy.kind==='drone'){enemy.y=enemy.base+Math.sin(time*2+enemy.x)*19;enemy.x+=Math.sign(player.x-enemy.x)*dt*24}
-    if(enemy.kind==='street'||enemy.kind==='sewer')enemy.x+=Math.sign(player.x-enemy.x)*dt*(enemy.kind==='sewer'?29:16);
-    if(enemy.cool<=0){
-      const angle=Math.atan2(player.y+18-enemy.y-enemy.h/2,player.x+10-enemy.x-enemy.w/2);
-      for(const a of enemy.kind==='boss'?[-.19,0,.19]:[0])bullets.push({x:enemy.x+enemy.w/2,y:enemy.y+enemy.h/2,vx:Math.cos(angle+a)*(160+level*22),vy:Math.sin(angle+a)*(160+level*22),life:4,friendly:false});
-      enemy.cool=enemy.kind==='boss'?1.2:2.25+rand(enemy.x);
+    const ex=enemy.x,ey=enemy.y;
+    stepEnemy(enemy,{player,bullets,time,ground:G,level},dt);
+    if(['street','sewer','shield','rusher','grenadier'].includes(enemy.kind)){
+      const body={...enemy,vy:0,vx:enemy.x-ex,ground:true};resolveObstacles(body,ex,ey,obstacles);enemy.x=body.x;
     }
-    if(player.x+20>enemy.x&&player.x<enemy.x+enemy.w&&player.y+40>enemy.y&&player.y<enemy.y+enemy.h)hitPlayer(12);
+    if(enemy.active&&(enemy.kind!=='sewer'||enemy.emerged)&&player.x+20>enemy.x&&player.x<enemy.x+enemy.w&&player.y+player.h>enemy.y&&player.y<enemy.y+enemy.h)hitPlayer(enemy.kind==='rusher'?22:18);
   }
+  for(const h of hazards){const phase=(time+h.offset)%h.cycle;h.warning=h.alwaysOn||phase>h.cycle-1.8;h.on=h.alwaysOn||phase>h.cycle-.85;if(h.on&&player.x+20>h.x&&player.x<h.x+h.w&&player.y+player.h>G-(h.kind==='electric'?14:55))hitPlayer(20)}
+  const beforeWaterHp=player.hp;stepWater(player,water,dt);if(player.hp>beforeWaterHp)toast(`恢复呼吸 +${player.hp-beforeWaterHp} HP`);
+  if(player.hp<=0&&state==='playing'){state='dead';mouse.down=false;overlay('呼吸中断','积水淹过了目镜。下次试试上方平台，或按 W 向水面游。','重试本区域')}
+  for(const blast of explosions)blast.life-=dt;explosions=explosions.filter(e=>e.life>0);
   for(const bullet of bullets){
+    if(bullet.gravity)bullet.vy+=bullet.gravity*dt;
     bullet.x+=bullet.vx*dt;bullet.y+=bullet.vy*dt;bullet.life-=dt;
+    if(bullet.grenade&&(bullet.life<=0||bullet.y>=G-5)){
+      const radius=bullet.radius||55;explosions.push({x:bullet.x,y:Math.min(bullet.y,G-12),r:radius,life:.3});
+      if(Math.hypot(bullet.x-player.x-10,Math.min(bullet.y,G-12)-player.y-player.h/2)<radius)hitPlayer(bullet.damage);bullet.life=0;burst(bullet.x,Math.min(bullet.y,G-12),'#ffb77f',20);continue;
+    }
+    const cover=!bullet.grenade&&!bullet.wave&&obstacles.find(o=>o.hp>0&&pointInside(bullet.x,bullet.y,o));
+    if(cover){if(bullet.friendly)cover.hp--;bullet.life=0;burst(bullet.x,bullet.y,'#dda379',3);continue}
     if(bullet.friendly){
       for(const enemy of enemies){
+        if(enemy.kind==='sewer'&&!enemy.emerged&&!(enemy.emerge>0))continue;
         if(enemy.hp<=0||bullet.x<enemy.x-5||bullet.x>enemy.x+enemy.w+5||bullet.y<enemy.y-5||bullet.y>enemy.y+enemy.h+5)continue;
-        enemy.hp--;enemy.hurt=.1;bullet.life=0;burst(bullet.x,bullet.y,'#ffc085',4);
-        if(enemy.hp<=0){killed++;score+=enemy.kind==='boss'?1000:100;burst(enemy.x,enemy.y+15,'#ff749d',18);drops.push({x:enemy.x+8,y:enemy.y,kind:['heal','spread','rapid','shield'][killed%4],life:30,vy:-90});beep(120,.11)}
+        bullet.life=0;
+        if(shieldBlocks(enemy,bullet)){burst(bullet.x,bullet.y,'#81eaff',3);break}
+        const damage=enemy.kind==='boss'&&enemy.bossType===1?(enemy.coreOpen?2:.5):1;
+        enemy.hp-=damage;enemy.hurt=.1;burst(bullet.x,bullet.y,'#ffc085',4);
+        if(enemy.hp<=0){killed++;score+=enemy.kind==='boss'?2000:100;burst(enemy.x,enemy.y+15,'#ff749d',18);drops.push({x:enemy.x+8,y:enemy.y,kind:['heal','spread','rapid','shield'][killed%4],life:30,vy:-90});beep(120,.11)}
         break;
       }
-    }else if(bullet.x>player.x-1&&bullet.x<player.x+21&&bullet.y>player.y&&bullet.y<player.y+40){hitPlayer(9+level*2);bullet.life=0}
+    }else if(!bullet.grenade&&pointInside(bullet.x,bullet.y,playerHitbox(player))){hitPlayer(bullet.damage||14);bullet.life=0}
   }
   bullets=bullets.filter(b=>b.life>0&&b.y>0&&b.y<H);
   for(const drop of drops){
     drop.life-=dt;drop.vy+=440*dt;const old=drop.y;drop.y=Math.min(G-19,drop.y+drop.vy*dt);
     for(const p of platforms)if(drop.vy>=0&&old+18<=p.y+2&&drop.y+18>=p.y&&drop.x>=p.x&&drop.x<=p.x+p.w){drop.y=p.y-18;drop.vy=0}
-    const distance=Math.hypot(drop.x-player.x-10,drop.y-player.y-22);
-    if(distance<85){drop.x+=(player.x+10-drop.x)*dt*7;drop.y+=(player.y+22-drop.y)*dt*7}
+    const distance=Math.hypot(drop.x-player.x-10,drop.y-player.y-player.h/2);
+    if(distance<85){drop.x+=(player.x+10-drop.x)*dt*7;drop.y+=(player.y+player.h/2-drop.y)*dt*7}
     if(distance<35){
       if(drop.kind==='heal')player.hp=Math.min(100,player.hp+30);
       if(drop.kind==='shield')player.shield=40;
@@ -163,7 +185,7 @@ function loop(now){
   if(state==='playing'){accumulator+=elapsed;while(accumulator>=STEP){time+=STEP;update(STEP);accumulator-=STEP}}else{accumulator=0;if(state!=='paused')time+=elapsed}
   shake=Math.max(0,shake-elapsed*20);flash=Math.max(0,flash-elapsed);
   ctx.save();if(shake>0)ctx.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);
-  render(ctx,{level,camera,time,state,player,enemies,bullets,particles,drops,platforms,ladders,score,killed,total,length:LENGTH,mouse,flash});ctx.restore();
+  render(ctx,{level,camera,time,state,player,enemies,bullets,particles,drops,platforms,ladders,obstacles,hazards,water,explosions,activeEncounter,score,killed,total,length:LENGTH,mouse,flash});ctx.restore();
   if(lastStatus!==state){lastStatus=state;$('#status').textContent=state==='playing'?'LOCAL SESSION / IN ACTION':state==='paused'?'LOCAL SESSION / PAUSED':'LOCAL SESSION / READY'}
   requestAnimationFrame(loop);
 }

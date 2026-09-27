@@ -1,4 +1,5 @@
-import {ART, sprite} from './assets.js';
+import {ART, sprite, runningSprite} from './assets.js';
+import {runFrame} from './animation.js';
 
 const W=960, H=540, G=466;
 const noise = n => {const value=Math.sin(n*127.1+31.7)*43758.5453;return value-Math.floor(value)};
@@ -52,12 +53,13 @@ export function render(ctx, game){
   }
   for(const d of drops){const y=d.y+Math.sin(time*4)*3;glow(ctx,d.x-camera+9,y+9,25,'#8cffca44');sprite(ctx,{heal:12,shield:13,spread:14,rapid:15}[d.kind],d.x-camera-3,y-3,25,25)}
   if(!(player.inv>0&&Math.floor(time*15)%2===0)){
-    const running=Math.abs(player.vx)>20&&player.ground;
-    const cell=!player.ground&&!player.climbing?3:running?1+Math.floor(player.anim*10)%2:0;
-    const bob=running?Math.sin(player.anim*20)*1.5:0;
+    const running=Math.abs(player.vx)>20&&player.ground&&!player.climbing&&player.dashTime<=0;
+    const cell=!player.ground&&!player.climbing?3:0;
     ctx.save();if(player.dashTime>0){ctx.globalAlpha=.28;sprite(ctx,cell,player.x-camera-22-player.face*20,player.y-16,52,59,player.face<0);ctx.globalAlpha=1}
     ctx.shadowColor='#6ef5dc';ctx.shadowBlur=4;
-    sprite(ctx,cell,player.x-camera-16,player.y-16+bob,52,59,player.face<0);ctx.restore();
+    if(running)runningSprite(ctx,runFrame(player.anim,player.vx*player.face<0),player.x-camera+10,player.y+40,player.face<0);
+    else sprite(ctx,cell,player.x-camera-16,player.y-16,52,59,player.face<0);
+    ctx.restore();
     if(player.shield>0){ctx.strokeStyle='#7fffd580';ctx.lineWidth=1;ctx.beginPath();ctx.ellipse(player.x-camera+10,player.y+20,25,34,0,0,Math.PI*2);ctx.stroke()}
   }
   for(const b of bullets){ctx.strokeStyle=b.friendly?'#cbffe6':'#ff6d96';ctx.lineWidth=b.friendly?2:3;ctx.beginPath();ctx.moveTo(b.x-camera,b.y);ctx.lineTo(b.x-camera-b.vx*.011,b.y-b.vy*.011);ctx.stroke();glow(ctx,b.x-camera,b.y,8,b.friendly?'#aaffdf44':'#ff668c44')}

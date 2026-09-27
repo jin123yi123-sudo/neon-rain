@@ -1,6 +1,7 @@
 import {SAVE_KEY,validateSave,encodeSave,decodeSave} from './progress.js';
 import {loadArt} from './assets.js';
 import {render} from './renderer.js';
+import {RUN_STRIDE} from './animation.js';
 
 const $=s=>document.querySelector(s),canvas=$('#game'),ctx=canvas.getContext('2d');
 const W=960,H=540,G=466,LENGTH=4200,STEP=1/120,keys=new Set();
@@ -101,7 +102,8 @@ function update(dt){
   if(!player.climbing&&player.vy>=0&&player.dropThrough<=0){
     for(const platform of platforms)if(oldY+40<=platform.y+2&&player.y+40>=platform.y&&player.x+20>platform.x&&player.x<platform.x+platform.w){player.y=platform.y-40;player.vy=0;player.ground=true}
   }
-  player.y=Math.max(25,player.y);player.anim+=dt*Math.min(1,Math.abs(player.vx)/160);
+  player.y=Math.max(25,player.y);
+  if(player.ground&&!player.climbing&&player.dashTime<=0)player.anim+=Math.abs(player.vx)*dt/RUN_STRIDE;
   if((mouse.down||keys.has('j'))&&shot<=0){
     const angle=mouse.down?Math.atan2(mouse.y-player.y-15,mouse.x+camera-player.x-10):Math.atan2(dy,dx||(!dy?player.face:0));
     if(mouse.down)player.face=Math.cos(angle)>=0?1:-1;

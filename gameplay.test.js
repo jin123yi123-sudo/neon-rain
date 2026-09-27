@@ -3,11 +3,12 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
 import {validateSave,encodeSave,decodeSave,SAVE_KEY} from './progress.js';
+import {RUN_STRIDE} from './animation.js';
 
 function boot(){
   const elements=new Map(), storage=new Map();
   const element=()=>({style:{},classList:{add(){},remove(){},toggle(){}},textContent:'',innerHTML:'',value:'',addEventListener(){},focus(){},scrollIntoView(){},querySelector(){return null},getContext(){return {}},showModal(){},close(){}});
-  const context=vm.createContext({render(){},loadArt(){return Promise.resolve()},console,Math,URL,performance:{now:()=>0},requestAnimationFrame(){},setTimeout(){},clearTimeout(){},addEventListener(){},document:{querySelector(s){if(!elements.has(s))elements.set(s,element());return elements.get(s)},querySelectorAll(){return []},addEventListener(){}},localStorage:{setItem(k,v){storage.set(k,v)},getItem(k){return storage.get(k)||null}},location:{hash:'',href:'http://localhost/'},window:{},validateSave,encodeSave,decodeSave,SAVE_KEY});
+  const context=vm.createContext({RUN_STRIDE,render(){},loadArt(){return Promise.resolve()},console,Math,URL,performance:{now:()=>0},requestAnimationFrame(){},setTimeout(){},clearTimeout(){},addEventListener(){},document:{querySelector(s){if(!elements.has(s))elements.set(s,element());return elements.get(s)},querySelectorAll(){return []},addEventListener(){}},localStorage:{setItem(k,v){storage.set(k,v)},getItem(k){return storage.get(k)||null}},location:{hash:'',href:'http://localhost/'},window:{},validateSave,encodeSave,decodeSave,SAVE_KEY});
   const source=readFileSync(new URL('./main.js',import.meta.url),'utf8').replace(/^import .*;\r?\n/gm,'');
   vm.runInContext(source,context);
   return expr=>vm.runInContext(expr,context);

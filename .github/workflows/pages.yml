@@ -22,7 +22,7 @@ jobs:
         with:
           node-version: 22
       - run: node --test
-      - run: mkdir public && cp index.html style.css main.js progress.js assets.js renderer.js public/ && cp -r assets public/
+      - run: mkdir public && cp index.html style.css main.js progress.js assets.js renderer.js animation.js public/ && cp -r assets public/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

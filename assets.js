@@ -1,6 +1,6 @@
 export const ART = {};
 export async function loadArt(onProgress = () => {}) {
-  const entries = ['market', 'underground', 'rooftop', 'atlas', 'story'];
+  const entries = ['market', 'underground', 'rooftop', 'atlas', 'story', 'courier-run'];
   let loaded = 0;
   await Promise.all(entries.map(name => new Promise((resolve, reject) => {
     const image = new Image();
@@ -27,5 +27,17 @@ export function sprite(ctx, cell, x, y, width, height, flip = false) {
   ctx.translate(Math.round(x + (flip ? width : 0)), Math.round(y));
   if (flip) ctx.scale(-1, 1);
   ctx.drawImage(atlas, sx*scale, sy*scale, sw*scale, sh*scale, 0, 0, width, height);
+  ctx.restore();
+}
+
+export function runningSprite(ctx, frame, centerX, feetY, flip = false) {
+  const sheet = ART['courier-run'];
+  if (!sheet) return;
+  const width=sheet.naturalWidth/3, height=sheet.naturalHeight/2;
+  ctx.save();
+  ctx.translate(Math.round(centerX),Math.round(feetY));
+  if(flip)ctx.scale(-1,1);
+  // Fixed cell coordinates preserve scale and foot registration across frames.
+  ctx.drawImage(sheet,(frame%3)*width,Math.floor(frame/3)*height,width,height,-34,-66,68,68);
   ctx.restore();
 }

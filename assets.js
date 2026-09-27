@@ -1,6 +1,6 @@
 export const ART = {};
 export async function loadArt(onProgress = () => {}) {
-  const entries = ['market', 'underground', 'rooftop', 'atlas', 'story', 'courier-run', 'combat-atlas', 'environment-atlas'];
+  const entries = ['market', 'underground', 'rooftop', 'atlas', 'story', 'courier-run', 'combat-atlas', 'environment-atlas', 'gamevado-graffiti'];
   let loaded = 0;
   await Promise.all(entries.map(name => new Promise((resolve, reject) => {
     const image = new Image();

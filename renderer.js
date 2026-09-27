@@ -27,6 +27,12 @@ export function render(ctx, game){
     ctx.drawImage(bg,0,0,bg.naturalWidth,bg.naturalHeight*.25,-camera*.02,0,W+90,115);
     ctx.restore();
   }
+  // One weathered tag on a market shutter, anchored to the world behind props.
+  if(level===0&&ART['gamevado-graffiti']){
+    ctx.save();ctx.globalAlpha=.62;
+    ctx.drawImage(ART['gamevado-graffiti'],948-camera,380,78,30);
+    ctx.restore();
+  }
   for(const p of platforms){
     if(p.x-camera>W+100||p.x+p.w-camera<0)continue;
     if(p.kind==='awning')environmentSprite(ctx,2,p.x-camera,p.y-8,p.w,52);
@@ -111,3 +117,4 @@ export function render(ctx, game){
   }
   if(flash>0)box(ctx,0,0,W,H,`rgba(255,80,130,${flash})`);
 }
+

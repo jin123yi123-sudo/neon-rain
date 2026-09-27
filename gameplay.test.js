@@ -10,11 +10,15 @@ import {playerHitbox,pointInside,setProne,resolveObstacles,shieldBlocks,stepEnem
 function boot(){
   const elements=new Map(), storage=new Map();
   const element=()=>({style:{},classList:{add(){},remove(){},toggle(){}},textContent:'',innerHTML:'',value:'',addEventListener(){},focus(){},scrollIntoView(){},querySelector(){return null},getContext(){return {}},showModal(){},close(){}});
-  const context=vm.createContext({buildLevel,ENEMY_STATS,BOSS_NAMES,playerHitbox,pointInside,setProne,resolveObstacles,shieldBlocks,stepEnemy,waterAt,stepWater,RUN_STRIDE,render(){},loadArt(){return Promise.resolve()},console,Math,URL,performance:{now:()=>0},requestAnimationFrame(){},setTimeout(){},clearTimeout(){},addEventListener(){},document:{querySelector(s){if(!elements.has(s))elements.set(s,element());return elements.get(s)},querySelectorAll(){return []},addEventListener(){}},localStorage:{setItem(k,v){storage.set(k,v)},getItem(k){return storage.get(k)||null}},location:{hash:'',href:'http://localhost/'},window:{},validateSave,encodeSave,decodeSave,SAVE_KEY});
+  const context=vm.createContext({mountTouch(){return {release(){},sync(){},enabled:false}},buildLevel,ENEMY_STATS,BOSS_NAMES,playerHitbox,pointInside,setProne,resolveObstacles,shieldBlocks,stepEnemy,waterAt,stepWater,RUN_STRIDE,render(){},loadArt(){return Promise.resolve()},console,Math,URL,performance:{now:()=>0},requestAnimationFrame(){},setTimeout(){},clearTimeout(){},addEventListener(){},document:{querySelector(s){if(!elements.has(s))elements.set(s,element());return elements.get(s)},querySelectorAll(){return []},addEventListener(){}},localStorage:{setItem(k,v){storage.set(k,v)},getItem(k){return storage.get(k)||null}},location:{hash:'',href:'http://localhost/'},window:{},validateSave,encodeSave,decodeSave,SAVE_KEY});
   const source=readFileSync(new URL('./main.js',import.meta.url),'utf8').replace(/^import .*;\r?\n/gm,'');
   vm.runInContext(source,context);
   return expr=>vm.runInContext(expr,context);
 }
+test('touch movement and independent aiming combine with jump without changing desktop keys',()=>{
+  const run=boot();run("reset(0);state='playing';touch.keys.add('d');touch.keys.add(' ');touch.firing=true;touch.angle=-Math.PI/4;update(1/120)");
+  assert.ok(run('player.vx')>0);assert.ok(run('player.vy')<0);assert.ok(run('bullets[0].vx')>0);assert.ok(run('bullets[0].vy')<0);assert.equal(run('keys.size'),0);
+});
 test('movement, jump, ladder and directional fire work in simulation',()=>{
   const run=boot();run("reset(0);state='playing';keys.add('d');for(let i=0;i<30;i++)update(1/60);keys.clear()");assert.ok(run('player.x')>180);
   run("keys.add(' ');update(1/60);keys.clear()");assert.ok(run('player.vy')<0);

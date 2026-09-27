@@ -1,3 +1,4 @@
+import {mountTouch} from './touch.js';
 import {SAVE_KEY,validateSave,encodeSave,decodeSave} from './progress.js';
 import {loadArt} from './assets.js';
 import {render} from './renderer.js';
@@ -7,6 +8,9 @@ import {playerHitbox,pointInside,setProne,resolveObstacles,shieldBlocks,stepEnem
 
 const $=s=>document.querySelector(s),canvas=$('#game'),ctx=canvas.getContext('2d');
 const W=960,H=540,G=466,LENGTH=4200,STEP=1/120,keys=new Set();
+const touch={keys:new Set(),firing:false,angle:0};
+let touchControls;
+const pressed=key=>keys.has(key)||touch.keys.has(key);
 const levels=[
   {name:'雨巷夜市',speaker:'老陈 / 修理铺',story:['「阿岚，听得到吗？」老陈把最后一枚电芯塞进你的掌心。','企业切断了街区供电。面馆老板还守着那锅热汤，诊所里还有人等着。','穿过夜市，击败东侧守卫。把电芯带到中继塔——他们的灯，就靠你了。']},
   {name:'地下暗流',speaker:'老陈 / 无线电',story:['地上的招牌熄灭了，地下的机器却还在轰鸣。','「不是故障。他们把整条街的电，都送进了自己的中继塔。」','循着绿色检修灯前进。外梯能避开地面火力，小心从管道里冒出的守卫。']},
@@ -34,7 +38,7 @@ function save(quiet=false){
 }
 function reset(n){
   level=n;camera=0;killed=0;shot=0;shake=0;flash=0;jumpBuffer=0;checkpointScore=score;
-  keys.clear();mouse.down=false;input.jumpHeld=false;input.dash=false;
+  keys.clear();touchControls?.release();mouse.down=false;input.jumpHeld=false;input.dash=false;
   bullets=[];particles=[];drops=[];enemies=[];explosions=[];activeEncounter=null;
   player={x:90,y:G-40,w:20,h:40,prone:false,vx:0,vy:0,hp:100,shield:0,inv:0,weapon:'normal',power:0,face:1,ground:true,climbing:false,coyote:.12,anim:0,dashTime:0,dashCooldown:0,dropThrough:0};
   const design=buildLevel(level,G);
@@ -50,9 +54,9 @@ function overlay(title,body,button,kicker='NEON RAIN / FIELD TRANSMISSION'){
 }
 function chapter(n){if(!artReady)return;reset(n);state='story';storyStep=0;showStory();$('.game-shell').scrollIntoView({behavior:'smooth',block:'center'})}
 function showStory(){overlay(levels[level].name,levels[level].story[storyStep],storyStep===2?'开始行动':'继续对话',`${levels[level].speaker} · ${storyStep+1} / 3`);$('#continue').style.display='block';$('#continue').textContent='跳过剧情'}
-function play(){state='playing';keys.clear();mouse.down=false;$('#overlay').classList.add('hidden');canvas.focus()}
+function play(){state='playing';keys.clear();touchControls?.release();mouse.down=false;$('#overlay').classList.add('hidden');canvas.focus()}
 function retry(){score=checkpointScore;reset(level);play()}
-function pause(){if(state==='playing'){state='paused';mouse.down=false;keys.clear();overlay('雨中稍歇','街区会等你。准备好了，就继续向前。','继续行动')}else if(state==='paused')play()}
+function pause(){touchControls?.release();if(state==='playing'){state='paused';mouse.down=false;keys.clear();overlay('雨中稍歇','街区会等你。准备好了，就继续向前。','继续行动')}else if(state==='paused')play()}
 function burst(x,y,color,count=10){for(let i=0;i<count;i++){const life=.2+Math.random()*.3;particles.push({x,y,vx:(Math.random()-.5)*160,vy:(Math.random()-.7)*160,life,maxLife:life,c:color,size:1+Math.random()*2})}if(particles.length>220)particles.splice(0,particles.length-220)}
 function hitPlayer(damage){
   if(player.inv>0||state!=='playing')return;
@@ -70,11 +74,11 @@ function update(dt){
   if(state!=='playing')return;
   player.inv=Math.max(0,player.inv-dt);shot-=dt;player.power-=dt;player.dashCooldown=Math.max(0,player.dashCooldown-dt);player.dropThrough=Math.max(0,player.dropThrough-dt);
   if(player.power<=0)player.weapon='normal';
-  const dx=(keys.has('d')||keys.has('arrowright')?1:0)-(keys.has('a')||keys.has('arrowleft')?1:0);
-  const dy=(keys.has('s')||keys.has('arrowdown')?1:0)-(keys.has('w')||keys.has('arrowup')?1:0);
+  const dx=(pressed('d')||pressed('arrowright')?1:0)-(pressed('a')||pressed('arrowleft')?1:0);
+  const dy=(pressed('s')||pressed('arrowdown')?1:0)-(pressed('w')||pressed('arrowup')?1:0);
   if(dx)player.face=dx;
-  setProne(player,keys.has('c'),obstacles);
-  const jumpHeld=keys.has(' ');
+  setProne(player,pressed('c'),obstacles);
+  const jumpHeld=pressed(' ');
   if(jumpHeld&&!input.jumpHeld)jumpBuffer=.14;
   input.jumpHeld=jumpHeld;jumpBuffer=Math.max(0,jumpBuffer-dt);
   player.coyote=player.ground?.12:Math.max(0,player.coyote-dt);
@@ -95,8 +99,8 @@ function update(dt){
     player.ground=false;player.climbing=false;player.coyote=0;jumpBuffer=0;
   }
   if(!jumpHeld&&player.vy<-175&&!player.climbing)player.vy=approach(player.vy,-175,1500*dt);
-  if(keys.has('shift')&&!input.dash&&!player.prone&&player.dashCooldown<=0){player.dashTime=.14;player.dashCooldown=.85;player.inv=Math.max(player.inv,.16);player.climbing=false;beep(330,.08)}
-  input.dash=keys.has('shift');
+  if(pressed('shift')&&!input.dash&&!player.prone&&player.dashCooldown<=0){player.dashTime=.14;player.dashCooldown=.85;player.inv=Math.max(player.inv,.16);player.climbing=false;beep(330,.08)}
+  input.dash=pressed('shift');
   if(player.dashTime>0){player.dashTime-=dt;player.vx=player.face*490;player.vy=0}
   const oldY=player.y,oldX=player.x;player.x=clamp(player.x+player.vx*dt,0,LENGTH-25);player.y+=player.vy*dt;player.ground=false;
   const oldPool=waterAt(oldX+10,water);
@@ -109,9 +113,9 @@ function update(dt){
   resolveObstacles(player,oldX,oldY,obstacles);
   player.y=Math.max(25,player.y);
   if(player.ground&&!player.climbing&&player.dashTime<=0)player.anim+=Math.abs(player.vx)*dt/RUN_STRIDE;
-  if((mouse.down||keys.has('j'))&&shot<=0){
-    const angle=mouse.down?Math.atan2(mouse.y-player.y-(player.prone?7:15),mouse.x+camera-player.x-10):player.prone?(player.face>0?0:Math.PI):Math.atan2(dy,dx||(!dy?player.face:0));
-    if(mouse.down)player.face=Math.cos(angle)>=0?1:-1;
+  if((mouse.down||touch.firing||pressed('j'))&&shot<=0){
+    const angle=touch.firing?touch.angle:mouse.down?Math.atan2(mouse.y-player.y-(player.prone?7:15),mouse.x+camera-player.x-10):player.prone?(player.face>0?0:Math.PI):Math.atan2(dy,dx||(!dy?player.face:0));
+    if(mouse.down||touch.firing)player.face=Math.cos(angle)>=0?1:-1;
     fire(angle);shot=player.weapon==='rapid'?.075:.155;
   }
   const target=clamp(player.x-W*.36+player.vx*.14,0,LENGTH-W);
@@ -181,15 +185,16 @@ function update(dt){
 
 let last=performance.now(),accumulator=0,lastStatus='';
 function loop(now){
+  touchControls?.sync(state);
   const elapsed=Math.min(.05,(now-last)/1000);last=now;
   if(state==='playing'){accumulator+=elapsed;while(accumulator>=STEP){time+=STEP;update(STEP);accumulator-=STEP}}else{accumulator=0;if(state!=='paused')time+=elapsed}
   shake=Math.max(0,shake-elapsed*20);flash=Math.max(0,flash-elapsed);
   ctx.save();if(shake>0)ctx.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);
-  render(ctx,{level,camera,time,state,player,enemies,bullets,particles,drops,platforms,ladders,obstacles,hazards,water,explosions,activeEncounter,score,killed,total,length:LENGTH,mouse,flash});ctx.restore();
+  render(ctx,{level,camera,time,state,player,enemies,bullets,particles,drops,platforms,ladders,obstacles,hazards,water,explosions,activeEncounter,score,killed,total,length:LENGTH,mouse,flash,touchMode:touchControls?.enabled});ctx.restore();
   if(lastStatus!==state){lastStatus=state;$('#status').textContent=state==='playing'?'LOCAL SESSION / IN ACTION':state==='paused'?'LOCAL SESSION / PAUSED':'LOCAL SESSION / READY'}
   requestAnimationFrame(loop);
 }
-function loseFocus(){keys.clear();mouse.down=false;input.jumpHeld=false;if(state==='playing')pause()}
+function loseFocus(){touchControls?.release();keys.clear();mouse.down=false;input.jumpHeld=false;if(state==='playing')pause()}
 addEventListener('keydown',event=>{
   if(event.target.matches('textarea,input')||$('#guide').open)return;
   const key=event.key.toLowerCase();if([' ','arrowup','arrowdown','arrowleft','arrowright'].includes(key))event.preventDefault();keys.add(key);
@@ -197,8 +202,8 @@ addEventListener('keydown',event=>{
 });
 addEventListener('keyup',event=>keys.delete(event.key.toLowerCase()));
 addEventListener('blur',loseFocus);document.addEventListener('visibilitychange',()=>{if(document.hidden)loseFocus()});
-function pointer(event){const bounds=canvas.getBoundingClientRect();mouse.x=(event.clientX-bounds.left)*W/bounds.width;mouse.y=(event.clientY-bounds.top)*H/bounds.height;mouse.active=true}
-canvas.addEventListener('pointermove',pointer);canvas.addEventListener('pointerdown',event=>{if(event.button===0&&state==='playing'){pointer(event);mouse.down=true;canvas.focus()}});
+function pointer(event){if(event.pointerType==='touch')return;const bounds=canvas.getBoundingClientRect();mouse.x=(event.clientX-bounds.left)*W/bounds.width;mouse.y=(event.clientY-bounds.top)*H/bounds.height;mouse.active=true}
+canvas.addEventListener('pointermove',pointer);canvas.addEventListener('pointerdown',event=>{if(event.pointerType!=='touch'&&event.button===0&&state==='playing'){pointer(event);mouse.down=true;canvas.focus()}});
 addEventListener('pointerup',()=>mouse.down=false);addEventListener('pointercancel',()=>mouse.down=false);canvas.addEventListener('contextmenu',event=>event.preventDefault());
 $('#start').onclick=()=>{
   if(state==='menu')chapter(0);
@@ -213,7 +218,7 @@ $('#share').onclick=async()=>{
   const value=(state==='menu'||state==='loading')?(load()||{version:1,level:0,unlocked:0,score:0}):save(true);
   const code=encodeSave(value),url=new URL(location.href);url.hash='save='+code;
   $('#code').value=url.href;
-  try{await navigator.clipboard.writeText(url.href);toast('分享链接已复制 · 包含已解锁章节与分数')}catch{$('#guide').showModal();toast('请复制文本框中的分享链接')}
+  try{if(touchControls?.enabled&&navigator.share){await navigator.share({title:'霓雨街区',text:'接过电芯，继续这场雨夜行动。',url:url.href});return}await navigator.clipboard.writeText(url.href);toast('分享链接已复制 · 包含已解锁章节与分数')}catch(error){if(error.name==='AbortError')return;$('#guide').showModal();toast('请复制文本框中的分享链接')}
 };
 function importCode(input){
   try{const code=input.includes('#save=')?input.split('#save=')[1]:input;const saved=decodeSave(decodeURIComponent(code.trim()));unlocked=saved.unlocked;score=saved.score;chapter(saved.level);save(true);toast('存档导入成功');return true}catch{toast('存档格式无效或版本不兼容');return false}
@@ -221,6 +226,7 @@ function importCode(input){
 $('#import').onclick=()=>{if(artReady&&importCode($('#code').value))$('#guide').close()};
 document.querySelectorAll('[data-level]').forEach(button=>button.onclick=()=>{const n=Number(button.dataset.level);if(!artReady)return;if(n<=unlocked)chapter(n);else toast('先完成上一章节，解锁这片街区')});
 $('#fullscreen').onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await $('.viewport').requestFullscreen()}catch{toast('当前浏览器不支持全屏，可使用 F11')}};
+touchControls=mountTouch({touch,getState:()=>state,getFace:()=>player?.face||1,pause});
 reset(0);$('#start').disabled=true;$('#start').textContent='正在载入美术…';
 loadArt(progress=>{$('#start').textContent=`载入街区 ${Math.round(progress*100)}%`}).then(()=>{
   artReady=true;state='menu';$('#start').disabled=false;$('#start').innerHTML='进入街区 <span>→</span>';

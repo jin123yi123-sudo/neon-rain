@@ -112,7 +112,7 @@ export function render(ctx, game){
     label(ctx,player.dashCooldown>0?'冲刺冷却':'SHIFT 冲刺就绪',W-36,73,8,'#98b0b1','right');
     box(ctx,315,27,330,2,'#ffffff25');box(ctx,315,27,330*player.x/length,2,'#bdffd6');
     const boss=enemies.find(e=>e.kind==='boss'&&e.hp>0&&e.active);if(boss){box(ctx,305,45,350,5,'#192233');box(ctx,305,45,350*boss.hp/boss.maxHp,5,boss.phase===2?'#ff5f82':'#d795be');label(ctx,`${BOSS_NAMES[boss.bossType]} / PHASE ${boss.phase}`,480,65,10,'#ffd6da','center')}
-    if(state==='playing'&&player.x<260)label(ctx,'A/D 移动 · 空格跳跃 · C 趴下 / 匍匐 · SHIFT 冲刺',W/2,116,12,'#d5eee4','center');
+    if(state==='playing'&&player.x<260)label(ctx,game.touchMode?'左杆移动 / 攀梯 · 右杆瞄准射击 · 按住跳跃':'A/D 移动 · 空格跳跃 · C 趴下 / 匍匐 · SHIFT 冲刺',W/2,116,12,'#d5eee4','center');
     if(state==='playing'&&mouse.active){ctx.strokeStyle='#c8ffe2';ctx.lineWidth=1;ctx.beginPath();ctx.arc(mouse.x,mouse.y,6,0,Math.PI*2);ctx.moveTo(mouse.x-11,mouse.y);ctx.lineTo(mouse.x-4,mouse.y);ctx.moveTo(mouse.x+4,mouse.y);ctx.lineTo(mouse.x+11,mouse.y);ctx.moveTo(mouse.x,mouse.y-11);ctx.lineTo(mouse.x,mouse.y-4);ctx.moveTo(mouse.x,mouse.y+4);ctx.lineTo(mouse.x,mouse.y+11);ctx.stroke()}
   }
   if(flash>0)box(ctx,0,0,W,H,`rgba(255,80,130,${flash})`);

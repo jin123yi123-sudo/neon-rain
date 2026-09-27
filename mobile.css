@@ -1,0 +1,35 @@
+#touch-controls,#touch-menu,#rotate-hint,.mobile-instructions{display:none}
+body.mobile-game{overflow:hidden;overscroll-behavior:none;background:#03080e}
+.mobile-game header,.mobile-game .eyebrow,.mobile-game .title,.mobile-game .below,.mobile-game footer,.mobile-game .game-top,.mobile-game .game-bottom{display:none}
+.mobile-game main{padding:0;max-width:none;margin:0}
+.mobile-game .game-shell{border:0;box-shadow:none}
+.mobile-game .viewport{position:fixed;inset:0;width:100%;height:100%;height:100dvh;aspect-ratio:auto;display:flex;align-items:center;justify-content:center;background:#03080e;touch-action:none;user-select:none;-webkit-user-select:none}
+.mobile-game canvas,.mobile-game .viewport:fullscreen canvas{width:min(100vw,177.7778vh);width:min(100vw,177.7778dvh);height:auto;aspect-ratio:16/9;flex:none}
+.mobile-game #overlay{z-index:3;padding:24px max(8%,env(safe-area-inset-left));overflow:auto}
+.mobile-game .overlay-card{max-width:70%}
+.mobile-game .overlay-card h2{font-size:clamp(24px,5vw,42px);margin:8px 0}
+.mobile-game .overlay-card p{font-size:12px;line-height:1.7;min-height:0}
+.mobile-game .overlay-card button{min-height:44px;margin-top:12px;padding:10px 16px;width:210px}
+.mobile-game #overlay.story{padding:16px max(7%,env(safe-area-inset-left))}
+.mobile-game #overlay.story .overlay-card{max-width:85%;width:650px}
+.mobile-game #overlay.story h2{font-size:24px}
+.mobile-game #overlay.story p{font-size:12px;min-height:0}
+.mobile-game #overlay.story button{min-height:44px;font-size:12px}
+.mobile-game #touch-controls:not([hidden]){display:block;position:absolute;inset:0;z-index:2;pointer-events:none}
+#touch-controls .stick,#touch-controls button{pointer-events:auto;touch-action:none;position:absolute;color:#d4f5e5;background:#07182166;border:1px solid #b5ffd84d;box-shadow:inset 0 0 15px #a6ffda0b;backdrop-filter:blur(2px)}
+.stick{width:110px;height:110px;border-radius:50%;bottom:max(18px,env(safe-area-inset-bottom))}
+#move-stick{left:max(22px,env(safe-area-inset-left))}#aim-stick{right:max(22px,env(safe-area-inset-right))}
+.stick i{display:block;position:absolute;left:calc(50% - 21px);top:calc(50% - 21px);width:42px;height:42px;border-radius:50%;background:#bcf5d72b;border:1px solid #c9ffe080;transform:translate(var(--stick-x,0px),var(--stick-y,0px));pointer-events:none}
+.stick span{position:absolute;top:-22px;width:100%;text-align:center;font-size:10px;text-shadow:0 1px 4px #000;pointer-events:none}
+#touch-controls button{width:52px;height:48px;border-radius:16px;padding:0;font-size:12px}
+#touch-jump{right:max(147px,calc(env(safe-area-inset-right) + 125px));bottom:max(20px,env(safe-area-inset-bottom))}
+#touch-dash{right:max(147px,calc(env(safe-area-inset-right) + 125px));bottom:max(82px,calc(env(safe-area-inset-bottom) + 62px))}
+#touch-prone{left:max(147px,calc(env(safe-area-inset-left) + 125px));bottom:max(20px,env(safe-area-inset-bottom))}
+#touch-controls .held,#touch-controls [aria-pressed="true"]{background:#559a826b;border-color:#b5ffd8}
+.mobile-game #touch-menu{display:block;position:absolute;z-index:4;top:max(8px,env(safe-area-inset-top));left:calc(50% - 30px);width:60px;min-height:36px;padding:7px;font-size:11px;background:#06151cd9;border:1px solid #7a9c8955;border-radius:7px}
+.mobile-game #toast{z-index:5;bottom:44%;font-size:11px;padding:8px 12px}
+.mobile-game dialog{max-height:85dvh;width:min(480px,90vw);overflow:auto;padding:18px}
+.mobile-game #mobile-options button{min-height:44px;margin:5px}
+.mobile-game .mobile-instructions{display:block}
+@media(orientation:portrait){.mobile-game #rotate-hint{display:flex;position:absolute;inset:0;z-index:6;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:#06111af5;color:#b5ffd8}.mobile-game #rotate-hint b{font-size:25px;letter-spacing:3px}.mobile-game #rotate-hint p{font-size:13px;line-height:2;color:#9fbeb8}.mobile-game #touch-menu{z-index:7}}
+@media(max-height:350px) and (orientation:landscape){.mobile-game .overlay-card h2{font-size:25px}.mobile-game .overlay-card p{font-size:11px}.mobile-game .overlay-card button{margin-top:6px}.stick{width:94px;height:94px}.mobile-game #overlay.story{padding-bottom:8px}}

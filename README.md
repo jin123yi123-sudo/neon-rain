@@ -38,8 +38,9 @@
 
 ## 技术与美术
 
-正式素材通过内置 ImageGen 生成，保存在 `assets/`。美术规范见 `ART-DIRECTION.md`，提示词见 `assets/prompts.json`。图集保留透明通道，按单个素材实际边界裁切，代码仅负责场景合成及实时特效。页面字体使用 Google Fonts，加载失败回退系统字体。声音由 Web Audio 合成，默认关闭。未实现多人联机、云端账户、移动端触控操作。
+正式素材通过内置 ImageGen 生成，保存在 `assets/`。美术规范见 `ART-DIRECTION.md`，提示词见 `assets/prompts.json`。图集保留透明通道，按单个素材实际边界裁切，代码仅负责场景合成及实时特效。页面字体使用 Google Fonts，加载失败回退系统字体。声音由 Web Audio 合成，默认关闭。未实现多人联机、云端账户和小红书原生客户端接入。
 
 ## 静态发布
 
 仓库已启用 GitHub Pages。推送 main 后，工作流运行测试并仅发布前端文件与素材。`node --test` 覆盖存档校验、战斗、通关、梯顶稳定、起跳容错、跳跃缓冲、冲刺与平台下落。
+
